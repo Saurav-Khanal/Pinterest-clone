@@ -1,10 +1,11 @@
 var express = require("express");
 var router = express.Router();
 const userModel = require("./users");
-const postsModel = require("./posts");
+const postModel = require("./posts");
 const passport = require("passport");
 const localStrategy = require("passport-local");
 passport.use(new localStrategy(userModel.authenticate()));
+const upload=require('./multer');//import the multer middleware setup
 
 router.get("/", function (req, res, next) {
   res.render("index", { title: "Express" });
@@ -15,10 +16,30 @@ router.get("/login", function (req, res, next) {
 });
 
 
+//handle file upload
+router.post('/upload',isLoggedIn,upload.single('file'),async function(req,res,next){
+  //access the uploaded file details via req.file
+  if(!req.file){
+    return res.status(404).send("No files were uploaded");
+  }
+  const user=await userModel.findOne({username:req.session.passport.user});
+ const post=await postModel.create({
+    image:req.file.filename,
+    imageText:req.body.filecaption,
+    userid:user._id
+});
+ user.posts.push(post._id);
+ await user.save();
+ res.redirect("/profile");
+});
+
+
 router.get("/profile", isLoggedIn, async function (req, res, next) {
   const user=await userModel.findOne({
     username:req.session.passport.user
   })
+  .populate("posts")
+  console.log(user);
   res.render("profile",{user});
 });
 
